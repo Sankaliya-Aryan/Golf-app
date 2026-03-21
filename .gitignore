@@ -1,0 +1,17 @@
+# Root level ignores
+node_modules/
+.env
+.env.*
+.DS_Store
+Thumbs.db
+.vscode/
+logs/
+*.log
+
+# Ignore IDE files
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
