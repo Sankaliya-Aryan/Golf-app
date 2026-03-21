@@ -94,6 +94,7 @@ export const getSubscription = async (req, res, next) => {
         plan: user.subscriptionType,
         expiry: user.subscriptionEndDate,
         daysRemaining: user.isSubscribed ? daysRemaining : 0,
+        isEntryLocked: user.isEntryLocked || false,
       });
     } else {
       res.status(404);

@@ -21,8 +21,8 @@ const AdminAnalytics = () => {
 
   if (!data) return <div className="p-8 text-center text-text-muted">Loading Analytics...</div>;
 
-  const totalRevenueMock = data.activeSubscribers * 9.99;
-  const charityContributionMock = totalRevenueMock * 0.40; // 40% to charity
+  const estimatedRevenue = data.activeSubscribers * 9.99;
+  const charityContribution = estimatedRevenue * 0.40; // 40% to charity
 
   return (
     <div className="space-y-6 sm:space-y-8 max-w-full overflow-x-hidden">
@@ -38,18 +38,18 @@ const AdminAnalytics = () => {
         <div className="bg-card p-5 sm:p-6 rounded-2xl border border-primary/20 shadow-[0_0_15px_rgba(99,102,241,0.1)]">
            <h3 className="text-xs font-black tracking-widest text-primary uppercase mb-3 flex items-center">
              <TrendingUp className="w-4 h-4 mr-2" />
-             Monthly Revenue (Mock)
+             Monthly Revenue Earning
            </h3>
-           <p className="text-4xl font-black text-white">${totalRevenueMock.toFixed(2)}</p>
+           <p className="text-4xl font-black text-white">${estimatedRevenue.toFixed(2)}</p>
            <p className="text-xs font-bold text-text-muted mt-2 tracking-wide text-success">Active Subscription MRR</p>
         </div>
 
         <div className="bg-card p-5 sm:p-6 rounded-2xl border border-success/20 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
            <h3 className="text-xs font-black tracking-widest text-success uppercase mb-3 flex items-center">
              <HandHeart className="w-4 h-4 mr-2" />
-             Charity Allocation (Mock)
+             Charity Allocation
            </h3>
-           <p className="text-4xl font-black text-white">${charityContributionMock.toFixed(2)}</p>
+           <p className="text-4xl font-black text-white">${charityContribution.toFixed(2)}</p>
            <p className="text-xs font-bold text-text-muted mt-2 tracking-wide">40% of Global Revenue</p>
         </div>
 

@@ -11,6 +11,7 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Demo from './pages/Demo';
+import NotFound from './pages/NotFound';
 
 // Admin Pages
 import AdminLayout from './components/AdminLayout';
@@ -66,6 +67,9 @@ function App() {
             <Route path="charities" element={<AdminCharities />} />
             <Route path="analytics" element={<AdminAnalytics />} />
           </Route>
+
+          {/* 404 Route */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
       <Toaster 

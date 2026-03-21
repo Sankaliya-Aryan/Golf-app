@@ -2,6 +2,7 @@ import Draw from '../models/Draw.js';
 import User from '../models/User.js';
 import Score from '../models/Score.js';
 import Winner from '../models/Winner.js';
+import TimerConfig from '../models/TimerConfig.js';
 
 // @desc    Generate a new draw
 // @route   POST /api/draws
@@ -48,6 +49,16 @@ export const generateDraw = async (req, res, next) => {
       await Winner.insertMany(winnersToInsert);
     }
 
+    // Stop and close the timer securely whenever a draw officially occurs
+    const timer = await TimerConfig.findOne();
+    if (timer) {
+      timer.isOpen = false;
+      timer.endTime = null;
+      await timer.save();
+    }
+
+    await User.updateMany({}, { isEntryLocked: false });
+
     res.status(201).json(draw);
   } catch (error) {
     next(error);
@@ -61,6 +72,71 @@ export const getLatestDraw = async (req, res, next) => {
   try {
     const draw = await Draw.findOne().sort({ createdAt: -1 });
     res.json(draw);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get draw history
+// @route   GET /api/draws/history
+// @access  Public
+export const getDrawHistory = async (req, res, next) => {
+  try {
+    const draws = await Draw.find().sort({ createdAt: -1 });
+    res.json(draws);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Reopen entries for all users
+// @route   PUT /api/draws/reopen
+// @access  Private/Admin
+export const reopenEntries = async (req, res, next) => {
+  try {
+    await User.updateMany({}, { isEntryLocked: false });
+    res.json({ message: 'Entries reopened successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get timer configuration
+// @route   GET /api/draws/timer
+// @access  Public
+export const getTimerConfig = async (req, res, next) => {
+  try {
+    let timer = await TimerConfig.findOne();
+    if (!timer) {
+      timer = await TimerConfig.create({ timeLimitMinutes: 2, isOpen: false });
+    }
+    res.json(timer);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update and Start/Stop timer
+// @route   PUT /api/draws/timer
+// @access  Private/Admin
+export const updateTimerConfig = async (req, res, next) => {
+  try {
+    const { timeLimitMinutes, action } = req.body;
+    let timer = await TimerConfig.findOne();
+    if (!timer) timer = new TimerConfig();
+
+    if (timeLimitMinutes) timer.timeLimitMinutes = timeLimitMinutes;
+
+    if (action === 'start') {
+      timer.endTime = new Date(Date.now() + timer.timeLimitMinutes * 60000);
+      timer.isOpen = true;
+    } else if (action === 'stop') {
+      timer.isOpen = false;
+      timer.endTime = null;
+    }
+    
+    await timer.save();
+    res.json(timer);
   } catch (error) {
     next(error);
   }

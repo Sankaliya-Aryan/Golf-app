@@ -38,19 +38,19 @@ const Navbar = () => {
           <div className="flex items-center space-x-1 sm:space-x-4">
             {user ? (
               <>
-                <Link 
-                  to="/dashboard" 
-                  className={`px-3 py-2 rounded-lg transition-all duration-300 flex items-center space-x-2 text-sm font-medium ${
-                    isActive('/dashboard') 
-                      ? 'bg-primary/10 text-primary shadow-sm shadow-primary/5' 
-                      : 'text-text-muted hover:text-white hover:bg-background/50'
-                  }`}
-                >
-                  <Home className="h-4 w-4" />
-                  <span className="hidden sm:inline">Dashboard</span>
-                </Link>
-                
-                {user.isAdmin && (
+                {!user.isAdmin ? (
+                  <Link 
+                    to="/dashboard" 
+                    className={`px-3 py-2 rounded-lg transition-all duration-300 flex items-center space-x-2 text-sm font-medium ${
+                      isActive('/dashboard') 
+                        ? 'bg-primary/10 text-primary shadow-sm shadow-primary/5' 
+                        : 'text-text-muted hover:text-white hover:bg-background/50'
+                    }`}
+                  >
+                    <Home className="h-4 w-4" />
+                    <span className="hidden sm:inline">Dashboard</span>
+                  </Link>
+                ) : (
                   <Link 
                     to="/admin" 
                     className={`px-3 py-2 rounded-lg transition-all duration-300 flex items-center space-x-2 text-sm font-medium ${
@@ -60,7 +60,7 @@ const Navbar = () => {
                     }`}
                   >
                     <Settings className="h-4 w-4" />
-                    <span className="hidden sm:inline">Admin</span>
+                    <span className="hidden sm:inline">Admin Panel</span>
                   </Link>
                 )}
                 

@@ -1,17 +1,77 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Trophy, PlayCircle, Dices, CheckCircle2 } from 'lucide-react';
+import { Trophy, PlayCircle, Dices, CheckCircle2, Loader2 } from 'lucide-react';
 import api from '../../services/api';
+import ConfirmModal from '../../components/ConfirmModal';
 
 const AdminDraws = () => {
   const [latestDraw, setLatestDraw] = useState(null);
   const [winners, setWinners] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [timerSettings, setTimerSettings] = useState(null);
+  const [timeLimitInput, setTimeLimitInput] = useState(2);
+  const [timeLeft, setTimeLeft] = useState({ min: '00', sec: '00' });
+  const [timerActive, setTimerActive] = useState(false);
+  const [showDrawConfirm, setShowDrawConfirm] = useState(false);
 
   useEffect(() => {
     fetchLatestDraw();
     fetchWinners();
+    fetchTimerConfig();
   }, []);
+
+  useEffect(() => {
+    if (!timerSettings || !timerSettings.isOpen || !timerSettings.endTime) {
+       setTimerActive(false);
+       setTimeLeft({ min: '00', sec: '00' });
+       return;
+    }
+
+    const intervalId = setInterval(() => {
+      const now = new Date();
+      const end = new Date(timerSettings.endTime);
+      const diff = end - now;
+
+      if (diff <= 0) {
+        setTimerActive(false);
+        setTimeLeft({ min: '00', sec: '00' });
+        clearInterval(intervalId);
+      } else {
+        setTimerActive(true);
+        const m = Math.floor((diff / 1000 / 60) % 60);
+        const s = Math.floor((diff / 1000) % 60);
+        setTimeLeft({
+          min: m.toString().padStart(2, '0'),
+          sec: s.toString().padStart(2, '0')
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [timerSettings]);
+
+  const fetchTimerConfig = async () => {
+    try {
+      const { data } = await api.get('/draws/timer');
+      setTimerSettings(data);
+      if (data.timeLimitMinutes) setTimeLimitInput(data.timeLimitMinutes);
+    } catch (error) {
+      console.error('Failed to load timer', error);
+    }
+  };
+
+  const handleTimerAction = async (action) => {
+    try {
+      const { data } = await api.put('/draws/timer', {
+        timeLimitMinutes: Number(timeLimitInput),
+        action
+      });
+      setTimerSettings(data);
+      toast.success(action === 'start' ? 'Timer started!' : 'Timer stopped/Entries closed.');
+    } catch (error) {
+      toast.error('Failed to update timer');
+    }
+  };
 
   const fetchLatestDraw = async () => {
     try {
@@ -32,32 +92,19 @@ const AdminDraws = () => {
   };
 
   const handleGenerateDraw = async () => {
-    if(!window.confirm('WARNING: Running a new draw will permanently calculate new winners against all current scores. Proceed?')) return;
+    setShowDrawConfirm(false);
     setIsGenerating(true);
     try {
       const { data } = await api.post('/draws');
-      toast.success('Draw generated successfully!');
+      toast.success('Draw generated and timer restarted!');
       setLatestDraw(data);
       fetchWinners();
+      fetchTimerConfig();
     } catch (error) {
       toast.error('Failed to generate draw');
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const handleSimulateDraw = () => {
-    const numbers = new Set();
-    while (numbers.size < 5) {
-      numbers.add(Math.floor(Math.random() * 45) + 1);
-    }
-    const drawArray = Array.from(numbers).sort((a, b) => a - b);
-    
-    toast.success(`Mock Simulation: [${drawArray.join(', ')}]`, {
-      duration: 5000,
-      icon: '🎰',
-      style: { background: '#111827', color: '#F9FAFB', border: '1px solid #6366F1' }
-    });
   };
 
   const handleMarkPaid = async (id) => {
@@ -77,21 +124,44 @@ const AdminDraws = () => {
           <h1 className="text-3xl font-extrabold text-white">Draw & Winner Records</h1>
           <p className="text-text-muted">Generate official draws and manage winner payouts.</p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-center mt-4 sm:mt-0">
+          <div className="flex items-center space-x-2 bg-background p-2 rounded-xl border border-border">
+            <span className="text-sm text-text-muted font-bold ml-2">Mins:</span>
+            <input 
+              type="number" 
+              value={timeLimitInput} 
+              onChange={e => setTimeLimitInput(e.target.value)} 
+              className="w-16 bg-card border-none outline-none text-white text-center font-bold"
+              min="1"
+            />
+          </div>
+
+          {!timerActive ? (
+            <button
+              onClick={() => handleTimerAction('start')}
+              disabled={isGenerating}
+              className="flex-1 sm:flex-none py-2 px-4 bg-card border border-success text-success hover:bg-success/10 rounded-xl font-bold transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+            >
+              <PlayCircle className="w-4 h-4" />
+              <span>Start Timer</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => handleTimerAction('stop')}
+              disabled={isGenerating}
+              className="flex-1 sm:flex-none py-2 px-4 bg-card border border-danger text-danger hover:bg-danger/10 rounded-xl font-bold transition-all flex items-center justify-center space-x-2 animate-pulse disabled:opacity-50 disabled:animate-none"
+            >
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>{timeLeft.min}:{timeLeft.sec} - Stop</span>
+            </button>
+          )}
+
           <button
-            onClick={handleSimulateDraw}
-            disabled={isGenerating}
-            className="flex-1 sm:flex-none py-2 px-4 bg-card border border-primary text-primary hover:bg-primary/10 rounded-xl font-bold transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
-          >
-            <Dices className="w-4 h-4" />
-            <span>Simulate</span>
-          </button>
-          <button
-            onClick={handleGenerateDraw}
+            onClick={() => setShowDrawConfirm(true)}
             disabled={isGenerating}
             className="flex-1 sm:flex-none py-2 px-6 bg-gradient-to-r from-danger to-orange-600 hover:from-red-600 hover:to-orange-700 text-white shadow-lg shadow-danger/25 rounded-xl font-bold transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
           >
-            <PlayCircle className="w-4 h-4" />
+            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />}
             <span>{isGenerating ? 'Running...' : 'Run Official Draw'}</span>
           </button>
         </div>
@@ -115,7 +185,7 @@ const AdminDraws = () => {
           {latestDraw ? (
             <div className="flex justify-center flex-wrap gap-2 mt-4">
               {latestDraw.numbers.map((num, i) => (
-                <div key={i} className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-black border-2 border-border bg-background shadow-inner text-white">
+                <div key={i} className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-black bg-primary shadow-sm text-white">
                   {num}
                 </div>
               ))}
@@ -195,6 +265,15 @@ const AdminDraws = () => {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        isOpen={showDrawConfirm}
+        title="Run Official Draw?"
+        message="This will irrevocably lock current entries, stop the active timer if running, generate the official winning 5 combinations for this cycle, and establish winner payouts."
+        confirmText="Execute Draw"
+        isDestructive={true}
+        onConfirm={handleGenerateDraw}
+        onCancel={() => setShowDrawConfirm(false)}
+      />
     </div>
   );
 };

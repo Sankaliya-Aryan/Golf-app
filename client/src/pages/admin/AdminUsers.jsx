@@ -20,26 +20,6 @@ const AdminUsers = () => {
     }
   };
 
-  const toggleSubscription = async (userId) => {
-    try {
-      await api.put(`/users/${userId}/subscribe`);
-      toast.success('Subscription status changed');
-      fetchUsers();
-    } catch (error) {
-      toast.error('Failed to change subscription');
-    }
-  };
-
-  const toggleRole = async (userId) => {
-    try {
-      await api.put(`/users/${userId}/role`);
-      toast.success('Admin role updated');
-      fetchUsers();
-    } catch (error) {
-      toast.error('Failed to update role');
-    }
-  };
-
   const filteredUsers = users.filter(u => 
     u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     u.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -73,7 +53,6 @@ const AdminUsers = () => {
                 <th className="px-6 py-4 font-bold text-center">Plan Status</th>
                 <th className="px-6 py-4 font-bold text-center">Charity</th>
                 <th className="px-6 py-4 font-bold text-center">Role</th>
-                <th className="px-6 py-4 font-bold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -111,26 +90,6 @@ const AdminUsers = () => {
                     </span>
                   </td>
 
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end space-x-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => toggleSubscription(user._id)}
-                        className="px-3 py-1.5 flex items-center space-x-1 border border-border hover:border-success text-text-muted hover:text-success rounded-lg text-xs font-bold transition-colors"
-                        title="Toggle Subscription"
-                      >
-                        <CreditCard className="w-3.5 h-3.5" />
-                        <span>Plan</span>
-                      </button>
-                      <button
-                        onClick={() => toggleRole(user._id)}
-                        className="px-3 py-1.5 flex items-center space-x-1 border border-border hover:border-primary text-text-muted hover:text-primary rounded-lg text-xs font-bold transition-colors"
-                        title="Toggle Admin Role"
-                      >
-                        <Shield className="w-3.5 h-3.5" />
-                        <span>Role</span>
-                      </button>
-                    </div>
-                  </td>
                 </tr>
               ))}
             </tbody>

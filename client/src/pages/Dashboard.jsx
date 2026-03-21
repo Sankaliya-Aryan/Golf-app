@@ -3,9 +3,11 @@ import toast from 'react-hot-toast';
 import { PlusCircle, CreditCard, Heart, Trophy, Lock, Award, TrendingUp, Inbox, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
 import AuthContext from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
-  const { user, updateUser } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const { user, logout, updateUser } = useContext(AuthContext);
   
   const [scores, setScores] = useState([]);
   const [latestDraw, setLatestDraw] = useState(null);
@@ -13,22 +15,82 @@ const Dashboard = () => {
   const [newScore, setNewScore] = useState('');
   const [charity, setCharity] = useState(user?.charity || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [drawHistory, setDrawHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [timerSettings, setTimerSettings] = useState(null);
+  const [timeLeft, setTimeLeft] = useState({ min: '00', sec: '00' });
+  const [timerActive, setTimerActive] = useState(false);
+  useEffect(() => {
+    if (user && user.isAdmin) {
+      navigate('/admin');
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (!timerSettings || !timerSettings.isOpen || !timerSettings.endTime) {
+       setTimerActive(false);
+       setTimeLeft({ min: '00', sec: '00' });
+       return;
+    }
+
+    const checkTimer = () => {
+      const now = new Date();
+      const end = new Date(timerSettings.endTime);
+      const diff = end - now;
+
+      if (diff <= 0) {
+        setTimerActive(false);
+        setTimeLeft({ min: '00', sec: '00' });
+        return false;
+      } else {
+        setTimerActive(true);
+        const m = Math.floor((diff / 1000 / 60) % 60);
+        const s = Math.floor((diff / 1000) % 60);
+        setTimeLeft({
+          min: m.toString().padStart(2, '0'),
+          sec: s.toString().padStart(2, '0')
+        });
+        return true;
+      }
+    };
+
+    // Run synchronously right away
+    const stillActive = checkTimer();
+    let intervalId;
+    if (stillActive) {
+       intervalId = setInterval(() => {
+         const isActive = checkTimer();
+         if (!isActive) clearInterval(intervalId);
+       }, 1000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [timerSettings]);
+
   const fetchData = async () => {
     try {
-      const [scoresRes, drawRes, subRes] = await Promise.all([
+      const [scoresRes, drawRes, subRes, historyRes, timerRes] = await Promise.all([
         api.get('/scores'),
         api.get('/draws/latest'),
-        api.get('/users/subscription').catch(() => ({ data: null }))
+        api.get('/users/subscription').catch(() => ({ data: null })),
+        api.get('/draws/history').catch(() => ({ data: [] })),
+        api.get('/draws/timer').catch(() => ({ data: null }))
       ]);
       setScores(scoresRes.data);
+      setDrawHistory(historyRes.data);
       setLatestDraw(drawRes.data);
+      setTimerSettings(timerRes.data);
       if (subRes.data) {
         setSubscriptionDetails(subRes.data);
+        if (subRes.data.isEntryLocked !== user.isEntryLocked) {
+          updateUser({ isEntryLocked: subRes.data.isEntryLocked });
+        }
       }
     } catch (error) {
       toast.error('Failed to load dashboard data');
@@ -267,12 +329,19 @@ const Dashboard = () => {
             <h3 className="text-xl font-extrabold flex items-center text-white">
               Golf Scores
             </h3>
-            <span className="text-xs font-bold px-3 py-1 bg-background border border-border rounded-full text-text-muted">
-              LATEST 5
-            </span>
+            <div className="flex items-center space-x-3">
+              {timerActive && (
+                 <span className="px-3 py-1 bg-danger/20 border border-danger/30 text-danger text-xs font-black rounded-full shadow-lg shadow-danger/10 animate-pulse flex items-center gap-1">
+                   CLOSING IN {timeLeft.min}:{timeLeft.sec}
+                 </span>
+              )}
+              <span className="text-xs font-bold px-3 py-1 bg-background border border-border rounded-full text-text-muted hidden sm:inline-block">
+                LATEST 5
+              </span>
+            </div>
           </div>
 
-          {!user.isSubscribed && (
+          {!user.isSubscribed ? (
             <div className="absolute inset-0 z-10 bg-card/80 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center">
               <div className="w-16 h-16 bg-background rounded-full flex items-center justify-center mb-4 border border-border shadow-2xl">
                 <Lock className="w-8 h-8 text-primary" />
@@ -280,33 +349,42 @@ const Dashboard = () => {
               <h4 className="text-xl font-bold text-white mb-2">Scores Locked</h4>
               <p className="text-text-muted text-sm max-w-xs leading-relaxed">You need an active subscription plan to add scores and enter the draw mechanics.</p>
             </div>
-          )}
-
-          <form onSubmit={handleAddScore} className="mb-8 relative z-0">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <PlusCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
-                <input
-                  type="number"
-                  min="1"
-                  max="45"
-                  value={newScore}
-                  onChange={(e) => setNewScore(e.target.value)}
-                  placeholder="1-45"
-                  disabled={!user.isSubscribed || isSubmitting}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-background border border-border focus:border-primary outline-none disabled:opacity-50 text-white font-medium"
-                  required
-                />
+          ) : !timerActive ? (
+            <div className="mb-8 p-5 bg-warning/10 border border-warning/50 rounded-xl flex items-start space-x-4">
+              <Lock className="w-6 h-6 text-warning flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-warning font-bold text-lg leading-tight mb-1">Entries Locked</h4>
+                <p className="text-warning/80 text-sm">Entries closed. Waiting for the next draw. You cannot add or modify your scores right now.</p>
               </div>
-              <button
-                type="submit"
-                disabled={!user.isSubscribed || isSubmitting}
-                className="px-5 py-3 bg-primary hover:bg-primary-hover text-white rounded-xl font-bold transition-colors shadow-lg shadow-primary/25 disabled:opacity-50"
-              >
-                Add
-              </button>
             </div>
-          </form>
+          ) : (
+            <form onSubmit={handleAddScore} className="mb-8 relative z-0">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <PlusCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
+                  <input
+                    type="number"
+                    min="1"
+                    max="45"
+                    value={newScore}
+                    onChange={(e) => setNewScore(e.target.value)}
+                    placeholder="1-45 (Max 5)"
+                    disabled={isSubmitting}
+                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-background border border-border focus:border-primary outline-none text-white font-medium disabled:opacity-50"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-3 bg-primary hover:bg-primary-hover text-white rounded-xl font-bold transition-colors shadow-lg shadow-primary/25 disabled:opacity-50"
+                  title="Add Score"
+                >
+                  Add
+                </button>
+              </div>
+            </form>
+          )}
 
           <div className="flex-1 flex flex-col gap-3 relative z-0">
             {scores.length === 0 ? (
@@ -356,8 +434,8 @@ const Dashboard = () => {
                       key={i} 
                       className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-black border-4 transition-all duration-500 shadow-xl ${
                         isMatch 
-                          ? 'border-success bg-background text-success shadow-success/40 scale-110' 
-                          : 'border-border bg-background text-text-muted'
+                          ? 'border-success bg-success text-white shadow-success/40 scale-110' 
+                          : 'border-primary bg-primary text-white'
                       }`}
                     >
                       {num}
@@ -379,8 +457,9 @@ const Dashboard = () => {
                   </div>
                   
                   {matchCount >= 3 ? (
-                    <div className="w-full py-3 bg-success text-white rounded-xl font-black tracking-wide shadow-lg shadow-success/30 animate-pulse">
-                      {matchCount === 5 ? 'JACKPOT WINNER! 🏆' : `WINNER (${matchCount} MATCHES) 🎉`}
+                    <div className="w-full py-3 bg-success text-white rounded-xl tracking-wide shadow-lg shadow-success/30 animate-pulse flex flex-col items-center">
+                      <span className="font-black text-lg">🎉 Congratulations!</span>
+                      <span className="text-sm font-bold">You matched {matchCount} numbers</span>
                     </div>
                   ) : (
                     <div className="w-full py-2 bg-card border border-border text-text-muted rounded-xl font-medium text-sm">
@@ -388,6 +467,32 @@ const Dashboard = () => {
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Draw History Toggle */}
+              <div className="mt-6 border-t border-border pt-4">
+                <button 
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="text-primary text-sm font-bold flex hover:underline items-center justify-center w-full"
+                >
+                  {showHistory ? 'Hide Previous Draws' : 'Show Previous Draws History'}
+                </button>
+                {showHistory && drawHistory.length > 0 && (
+                  <div className="mt-4 space-y-3 max-h-48 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-primary/20">
+                    {drawHistory.map(draw => (
+                      <div key={draw._id} className="p-3 bg-background border border-border rounded-lg flex justify-between items-center group hover:border-primary/50 transition-colors">
+                        <span className="text-xs font-bold text-text-muted">{new Date(draw.createdAt).toLocaleDateString()}</span>
+                        <div className="flex gap-1.5">
+                          {draw.numbers.map(n => (
+                            <span key={n} className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-[10px] font-black text-white shadow-sm">
+                              {n}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ) : (

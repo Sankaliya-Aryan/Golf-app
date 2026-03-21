@@ -4,7 +4,7 @@ import { LayoutDashboard, Users, Hash, Trophy, HeartHandshake, LineChart } from 
 const AdminLayout = () => {
   const links = [
     { to: '/admin', end: true, label: 'Overview', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { to: '/admin/users', end: false, label: 'User Management', icon: <Users className="w-5 h-5" /> },
+    { to: '/admin/users', end: false, label: 'Users', icon: <Users className="w-5 h-5" /> },
     { to: '/admin/scores', end: false, label: 'Recorded Scores', icon: <Hash className="w-5 h-5" /> },
     { to: '/admin/draws', end: false, label: 'Draws & Winners', icon: <Trophy className="w-5 h-5" /> },
     { to: '/admin/charities', end: false, label: 'Charities', icon: <HeartHandshake className="w-5 h-5" /> },

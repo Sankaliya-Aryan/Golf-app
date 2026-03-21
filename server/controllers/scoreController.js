@@ -1,5 +1,7 @@
 import Score from '../models/Score.js';
 import User from '../models/User.js';
+import TimerConfig from '../models/TimerConfig.js';
+import Draw from '../models/Draw.js';
 
 // @desc    Add a score
 // @route   POST /api/scores
@@ -18,6 +20,32 @@ export const addScore = async (req, res, next) => {
     if (!user.isSubscribed) {
       res.status(403);
       throw new Error('Must be subscribed to add scores');
+    }
+
+    const timer = await TimerConfig.findOne();
+    if (!timer || !timer.isOpen) {
+      res.status(403);
+      throw new Error('Entries are currently closed.');
+    }
+
+    if (timer.endTime && new Date() > new Date(timer.endTime)) {
+      timer.isOpen = false;
+      await timer.save();
+      res.status(403);
+      throw new Error('Time is up! Entries are closed.');
+    }
+
+    // Wipe previous cycle scores if they are older than the latest draw
+    const latestDraw = await Draw.findOne().sort({ createdAt: -1 });
+    if (latestDraw) {
+      const userScores = await Score.find({ userId: req.user._id });
+      if (userScores.length > 0) {
+        const maxScoreDate = new Date(Math.max(...userScores.map(s => new Date(s.createdAt).getTime())));
+        if (new Date(latestDraw.createdAt) > maxScoreDate) {
+          // The old scores belong to the prior draw cycle. Flush them to start fresh.
+          await Score.deleteMany({ userId: req.user._id });
+        }
+      }
     }
 
     // Add new score

@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, Edit2, Trash2, HeartHandshake } from 'lucide-react';
 import api from '../../services/api';
+import ConfirmModal from '../../components/ConfirmModal';
 
 const AdminCharities = () => {
   const [charities, setCharities] = useState([]);
   const [formData, setFormData] = useState({ name: '', description: '' });
   const [editingId, setEditingId] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
 
   useEffect(() => {
     fetchCharities();
@@ -44,11 +46,12 @@ const AdminCharities = () => {
     setFormData({ name: c.name, description: c.description });
   };
 
-  const handleDelete = async (id) => {
-    if(!window.confirm('Are you sure you want to delete this charity?')) return;
+  const handleDelete = async () => {
+    if(!deleteId) return;
     try {
-      await api.delete(`/charities/${id}`);
+      await api.delete(`/charities/${deleteId}`);
       toast.success('Charity deleted');
+      setDeleteId(null);
       fetchCharities();
     } catch (error) {
       toast.error('Failed to delete charity');
@@ -132,7 +135,7 @@ const AdminCharities = () => {
                   <button onClick={() => handleEdit(c)} className="p-2 border border-border hover:border-blue-500 hover:text-blue-500 rounded-lg bg-background transition-colors" title="Edit">
                      <Edit2 className="w-4 h-4" />
                   </button>
-                  <button onClick={() => handleDelete(c._id)} className="p-2 border border-border hover:border-danger hover:text-danger rounded-lg bg-background transition-colors" title="Delete">
+                  <button onClick={() => setDeleteId(c._id)} className="p-2 border border-border hover:border-danger hover:text-danger rounded-lg bg-background transition-colors" title="Delete">
                      <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -140,6 +143,15 @@ const AdminCharities = () => {
           ))}
         </div>
       </div>
+      <ConfirmModal
+        isOpen={!!deleteId}
+        title="Delete Charity?"
+        message="This action will permanently remove this charity from the system. Associated user preferences might be affected."
+        confirmText="Confirm Delete"
+        isDestructive={true}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteId(null)}
+      />
     </div>
   );
 };

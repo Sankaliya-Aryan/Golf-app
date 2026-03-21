@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { LogIn, ShieldAlert, FileSignature } from 'lucide-react';
@@ -11,7 +11,17 @@ const AdminLogin = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const navigate = useNavigate();
-  const { login } = useContext(AuthContext);
+  const { user, login } = useContext(AuthContext);
+
+  useEffect(() => {
+    if (user) {
+      if (user.isAdmin) {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
