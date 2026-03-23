@@ -12,6 +12,7 @@ const AdminDraws = () => {
   const [timeLimitInput, setTimeLimitInput] = useState(2);
   const [timeLeft, setTimeLeft] = useState({ min: '00', sec: '00' });
   const [timerActive, setTimerActive] = useState(false);
+  const [isUpdatingTimer, setIsUpdatingTimer] = useState(false);
   const [showDrawConfirm, setShowDrawConfirm] = useState(false);
 
   useEffect(() => {
@@ -27,7 +28,7 @@ const AdminDraws = () => {
        return;
     }
 
-    const intervalId = setInterval(() => {
+    const checkTimer = () => {
       const now = new Date();
       const end = new Date(timerSettings.endTime);
       const diff = end - now;
@@ -35,7 +36,7 @@ const AdminDraws = () => {
       if (diff <= 0) {
         setTimerActive(false);
         setTimeLeft({ min: '00', sec: '00' });
-        clearInterval(intervalId);
+        return false;
       } else {
         setTimerActive(true);
         const m = Math.floor((diff / 1000 / 60) % 60);
@@ -44,10 +45,23 @@ const AdminDraws = () => {
           min: m.toString().padStart(2, '0'),
           sec: s.toString().padStart(2, '0')
         });
+        return true;
       }
-    }, 1000);
+    };
 
-    return () => clearInterval(intervalId);
+    const stillActive = checkTimer();
+    let intervalId;
+    
+    if (stillActive) {
+      intervalId = setInterval(() => {
+        const isActive = checkTimer();
+        if (!isActive) clearInterval(intervalId);
+      }, 1000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [timerSettings]);
 
   const fetchTimerConfig = async () => {
@@ -61,6 +75,7 @@ const AdminDraws = () => {
   };
 
   const handleTimerAction = async (action) => {
+    setIsUpdatingTimer(true);
     try {
       const { data } = await api.put('/draws/timer', {
         timeLimitMinutes: Number(timeLimitInput),
@@ -70,6 +85,8 @@ const AdminDraws = () => {
       toast.success(action === 'start' ? 'Timer started!' : 'Timer stopped/Entries closed.');
     } catch (error) {
       toast.error('Failed to update timer');
+    } finally {
+      setIsUpdatingTimer(false);
     }
   };
 
@@ -139,20 +156,20 @@ const AdminDraws = () => {
           {!timerActive ? (
             <button
               onClick={() => handleTimerAction('start')}
-              disabled={isGenerating}
+              disabled={isGenerating || isUpdatingTimer}
               className="flex-1 sm:flex-none py-2 px-4 bg-card border border-success text-success hover:bg-success/10 rounded-xl font-bold transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
             >
-              <PlayCircle className="w-4 h-4" />
-              <span>Start Timer</span>
+              {isUpdatingTimer ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />}
+              <span>{isUpdatingTimer ? 'Starting...' : 'Start Timer'}</span>
             </button>
           ) : (
             <button
               onClick={() => handleTimerAction('stop')}
-              disabled={isGenerating}
+              disabled={isGenerating || isUpdatingTimer}
               className="flex-1 sm:flex-none py-2 px-4 bg-card border border-danger text-danger hover:bg-danger/10 rounded-xl font-bold transition-all flex items-center justify-center space-x-2 animate-pulse disabled:opacity-50 disabled:animate-none"
             >
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>{timeLeft.min}:{timeLeft.sec} - Stop</span>
+              <Loader2 className={`w-4 h-4 ${isUpdatingTimer ? 'animate-spin' : ''}`} />
+              <span>{isUpdatingTimer ? 'Stopping...' : `${timeLeft.min}:${timeLeft.sec} - Stop`}</span>
             </button>
           )}
 
